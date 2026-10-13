@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button.js';
 import { Input } from '../../components/ui/input.js';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card.js';
 import { toast } from 'sonner';
-import { ShieldCheck, Sparkles } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -36,11 +36,6 @@ export function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickLogin = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('Admin@12345');
   };
 
   return (
@@ -83,53 +78,6 @@ export function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-            </div>
-
-            {/* Quick Demo Credentials selector */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-medium text-muted-foreground flex items-center">
-                  <Sparkles className="h-3 w-3 mr-1 text-primary" />
-                  Quick Demo Accounts
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('superadmin@stockflow.dev')}
-                  className="rounded-md border border-border bg-muted/40 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-primary hover:text-white transition-all text-center"
-                >
-                  Super Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('admin@stockflow.dev')}
-                  className="rounded-md border border-border bg-muted/40 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-primary hover:text-white transition-all text-center"
-                >
-                  Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('manager@stockflow.dev')}
-                  className="rounded-md border border-border bg-muted/40 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-primary hover:text-white transition-all text-center"
-                >
-                  Manager
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('staff@stockflow.dev')}
-                  className="rounded-md border border-border bg-muted/40 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-primary hover:text-white transition-all text-center"
-                >
-                  Staff
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('viewer@stockflow.dev')}
-                  className="rounded-md border border-border bg-muted/40 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-primary hover:text-white transition-all text-center col-span-2"
-                >
-                  Viewer (Read-Only)
-                </button>
-              </div>
             </div>
           </CardContent>
 

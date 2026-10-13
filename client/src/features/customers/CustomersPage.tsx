@@ -12,15 +12,28 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Skeleton } from '../../components/ui/skeleton.js';
 import { EmptyState } from '../../components/ui/empty-state.js';
 import { formatCurrency } from '../../lib/utils.js';
-import { Plus, Search, Users2 } from 'lucide-react';
+import { Plus, Search, Users2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function CustomersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
   const [formData, setFormData] = useState({
+    code: '',
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    billingAddress: '',
+    shippingAddress: '',
+    city: '',
+    creditLimit: 25000,
+  });
+
+  const [editFormData, setEditFormData] = useState({
     code: '',
     name: '',
     email: '',
@@ -47,7 +60,7 @@ export function CustomersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      toast.success('Customer account registered successfully');
+      toast.success('Customer account registered in PostgreSQL');
       setShowCreateModal(false);
       setFormData({
         code: '',
@@ -67,11 +80,53 @@ export function CustomersPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (payload: { id: string } & typeof editFormData) => {
+      const { id, ...body } = payload;
+      const res = await api.put(`/customers/${id}`, body);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast.success('Customer details updated in PostgreSQL');
+      setEditingCustomer(null);
+    },
+    onError: (err: unknown) => {
+      // @ts-expect-error error handle
+      toast.error(err.response?.data?.message || 'Failed to update customer');
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createMutation.mutate({
       ...formData,
       creditLimit: Number(formData.creditLimit),
+    });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCustomer) return;
+    updateMutation.mutate({
+      id: editingCustomer.id,
+      ...editFormData,
+      creditLimit: Number(editFormData.creditLimit),
+    });
+  };
+
+  const startEdit = (c: Customer) => {
+    setEditingCustomer(c);
+    setEditFormData({
+      code: c.code,
+      name: c.name,
+      email: c.email || '',
+      phone: c.phone || '',
+      company: c.company || '',
+      billingAddress: c.billingAddress || '',
+      shippingAddress: c.shippingAddress || '',
+      city: c.city || '',
+      creditLimit: Number(c.creditLimit) || 25000,
     });
   };
 
@@ -125,6 +180,7 @@ export function CustomersPage() {
                 <TableHead>Total Orders</TableHead>
                 <TableHead>Outstanding Balance</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -163,6 +219,15 @@ export function CustomersPage() {
                       {c.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <button
+                      onClick={() => startEdit(c)}
+                      className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                      title="Edit customer"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -170,29 +235,30 @@ export function CustomersPage() {
         )}
       </Card>
 
+      {/* CREATE MODAL */}
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Add Customer Account"
-        description="Register an enterprise customer profile with credit facilities."
+        title="Register Commercial Customer"
+        description="Add a new customer account with billing terms and credit limits."
         maxWidth="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Customer Code *</label>
+              <label className="text-xs font-semibold text-foreground">Account Code *</label>
               <Input
                 required
-                placeholder="e.g. CUST-005"
+                placeholder="e.g. CUST-004"
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Contact / Account Name *</label>
+              <label className="text-xs font-semibold text-foreground">Contact Name *</label>
               <Input
                 required
-                placeholder="e.g. Robert Sterling"
+                placeholder="Customer Contact Person"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -203,7 +269,7 @@ export function CustomersPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">Company Name</label>
               <Input
-                placeholder="Sterling Media Group"
+                placeholder="e.g. Acme Corporation"
                 value={formData.company}
                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
               />
@@ -212,7 +278,7 @@ export function CustomersPage() {
               <label className="text-xs font-semibold text-foreground">Email</label>
               <Input
                 type="email"
-                placeholder="robert@sterling.com"
+                placeholder="procurement@company.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
@@ -220,7 +286,7 @@ export function CustomersPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">Phone</label>
               <Input
-                placeholder="+1 312-555-0199"
+                placeholder="+1 800-555-0199"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
@@ -229,11 +295,11 @@ export function CustomersPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Billing Address</label>
+              <label className="text-xs font-semibold text-foreground">City</label>
               <Input
-                placeholder="400 Michigan Ave"
-                value={formData.billingAddress}
-                onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
+                placeholder="Chicago"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
@@ -252,6 +318,94 @@ export function CustomersPage() {
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
               Register Customer
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* EDIT MODAL */}
+      <Modal
+        isOpen={!!editingCustomer}
+        onClose={() => setEditingCustomer(null)}
+        title="Edit Customer Account"
+        description="Update customer contact profile and credit limits."
+        maxWidth="lg"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Account Code *</label>
+              <Input
+                required
+                placeholder="Account code"
+                value={editFormData.code}
+                onChange={(e) => setEditFormData({ ...editFormData, code: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Contact Name *</label>
+              <Input
+                required
+                placeholder="Customer Contact Person"
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Company Name</label>
+              <Input
+                placeholder="Company name"
+                value={editFormData.company}
+                onChange={(e) => setEditFormData({ ...editFormData, company: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Email</label>
+              <Input
+                type="email"
+                placeholder="email"
+                value={editFormData.email}
+                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Phone</label>
+              <Input
+                placeholder="Phone number"
+                value={editFormData.phone}
+                onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">City</label>
+              <Input
+                placeholder="City"
+                value={editFormData.city}
+                onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Credit Limit ($)</label>
+              <Input
+                type="number"
+                value={editFormData.creditLimit}
+                onChange={(e) => setEditFormData({ ...editFormData, creditLimit: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4 border-t border-border">
+            <Button type="button" variant="outline" onClick={() => setEditingCustomer(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={updateMutation.isPending}>
+              Save Changes
             </Button>
           </div>
         </form>

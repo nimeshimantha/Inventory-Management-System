@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Edit2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -36,6 +37,7 @@ export function ProductsPage() {
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showMovementsModal, setShowMovementsModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -43,6 +45,21 @@ export function ProductsPage() {
 
   // Form State
   const [formData, setFormData] = useState({
+    name: '',
+    sku: '',
+    barcode: '',
+    description: '',
+    categoryId: '',
+    brandId: '',
+    unit: 'pcs',
+    costPrice: 0,
+    sellingPrice: 0,
+    taxRate: 8.25,
+    reorderLevel: 10,
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    id: '',
     name: '',
     sku: '',
     barcode: '',
@@ -136,6 +153,53 @@ export function ProductsPage() {
       toast.error(err.response?.data?.message || 'Failed to archive product');
     },
   });
+
+  // Mutation: Update Product
+  const updateMutation = useMutation({
+    mutationFn: async (payload: typeof editFormData) => {
+      const { id, ...body } = payload;
+      const res = await api.put(`/products/${id}`, body);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Product updated successfully in PostgreSQL');
+      setShowEditModal(false);
+    },
+    onError: (err: unknown) => {
+      // @ts-expect-error error handle
+      toast.error(err.response?.data?.message || 'Failed to update product');
+    },
+  });
+
+  const handleStartEdit = (product: Product) => {
+    setEditFormData({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      barcode: product.barcode || '',
+      description: product.description || '',
+      categoryId: product.categoryId || '',
+      brandId: product.brandId || '',
+      unit: product.unit || 'pcs',
+      costPrice: Number(product.costPrice) || 0,
+      sellingPrice: Number(product.sellingPrice) || 0,
+      taxRate: Number(product.taxRate) || 8.25,
+      reorderLevel: Number(product.reorderLevel) || 10,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate({
+      ...editFormData,
+      costPrice: Number(editFormData.costPrice),
+      sellingPrice: Number(editFormData.sellingPrice),
+      taxRate: Number(editFormData.taxRate),
+      reorderLevel: Number(editFormData.reorderLevel),
+    });
+  };
 
   const handleExportCsv = async () => {
     try {
@@ -345,6 +409,13 @@ export function ProductsPage() {
                           title="View Details"
                         >
                           <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleStartEdit(product)}
+                          className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                          title="Edit Product"
+                        >
+                          <Edit2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleViewMovements(product)}
@@ -625,6 +696,135 @@ export function ProductsPage() {
             ))
           )}
         </div>
+      </Modal>
+
+      {/* EDIT PRODUCT MODAL */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Product"
+        description="Update SKU details, pricing, and catalog attributes."
+        maxWidth="lg"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Product Name *</label>
+              <Input
+                required
+                placeholder="Product name"
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">SKU (Unique) *</label>
+              <Input
+                required
+                placeholder="SKU"
+                value={editFormData.sku}
+                onChange={(e) => setEditFormData({ ...editFormData, sku: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Barcode / EAN</label>
+              <Input
+                placeholder="Barcode"
+                value={editFormData.barcode}
+                onChange={(e) => setEditFormData({ ...editFormData, barcode: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Category</label>
+              <select
+                value={editFormData.categoryId}
+                onChange={(e) => setEditFormData({ ...editFormData, categoryId: e.target.value })}
+                className="h-10 w-full rounded-lg border border-input bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">Select category...</option>
+                {categories?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Brand</label>
+              <select
+                value={editFormData.brandId}
+                onChange={(e) => setEditFormData({ ...editFormData, brandId: e.target.value })}
+                className="h-10 w-full rounded-lg border border-input bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">Select brand...</option>
+                {brands?.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Unit</label>
+              <Input
+                value={editFormData.unit}
+                onChange={(e) => setEditFormData({ ...editFormData, unit: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Cost Price ($)</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={editFormData.costPrice}
+                onChange={(e) => setEditFormData({ ...editFormData, costPrice: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Selling Price ($)</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={editFormData.sellingPrice}
+                onChange={(e) => setEditFormData({ ...editFormData, sellingPrice: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Reorder Level</label>
+              <Input
+                type="number"
+                value={editFormData.reorderLevel}
+                onChange={(e) => setEditFormData({ ...editFormData, reorderLevel: parseInt(e.target.value, 10) || 10 })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Description</label>
+            <textarea
+              rows={3}
+              value={editFormData.description}
+              onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+              placeholder="Detailed specifications, warranty notes, etc."
+              className="w-full rounded-lg border border-input bg-card p-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4 border-t border-border">
+            <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={updateMutation.isPending}>
+              Save Product
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

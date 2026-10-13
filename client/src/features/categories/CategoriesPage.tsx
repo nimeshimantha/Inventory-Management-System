@@ -10,7 +10,7 @@ import { Modal } from '../../components/ui/modal.js';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table.js';
 import { Skeleton } from '../../components/ui/skeleton.js';
 import { EmptyState } from '../../components/ui/empty-state.js';
-import { Plus, Search, Trash2, Layers } from 'lucide-react';
+import { Plus, Search, Trash2, Layers, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function CategoriesPage() {
@@ -20,6 +20,12 @@ export function CategoriesPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [parentId, setParentId] = useState('');
+
+  // Edit State
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editParentId, setEditParentId] = useState('');
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ['categories', search],
@@ -48,6 +54,23 @@ export function CategoriesPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (payload: { id: string; name: string; description?: string; parentId?: string }) => {
+      const { id, ...data } = payload;
+      const res = await api.put(`/categories/${id}`, data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Category updated successfully');
+      setEditingCategory(null);
+    },
+    onError: (err: unknown) => {
+      // @ts-expect-error error handle
+      toast.error(err.response?.data?.message || 'Failed to update category');
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await api.delete(`/categories/${id}`);
@@ -71,6 +94,24 @@ export function CategoriesPage() {
       description,
       parentId: parentId || undefined,
     });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editName) return;
+    updateMutation.mutate({
+      id: editingCategory.id,
+      name: editName,
+      description: editDescription,
+      parentId: editParentId || undefined,
+    });
+  };
+
+  const startEdit = (c: Category) => {
+    setEditingCategory(c);
+    setEditName(c.name);
+    setEditDescription(c.description || '');
+    setEditParentId(c.parentId || '');
   };
 
   return (
@@ -106,8 +147,8 @@ export function CategoriesPage() {
           </div>
         ) : !categories || categories.length === 0 ? (
           <EmptyState
-            title="No categories found"
-            description="Create categories to classify items across your warehouses."
+            title="No categories found."
+            description="Create your first category to get started."
             actionText="Add Category"
             onAction={() => setShowCreateModal(true)}
             icon={<Layers className="h-7 w-7" />}
@@ -140,17 +181,26 @@ export function CategoriesPage() {
                     {c.productCount} SKUs
                   </TableCell>
                   <TableCell className="text-right">
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Delete category "${c.name}"?`)) {
-                          deleteMutation.mutate(c.id);
-                        }
-                      }}
-                      className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                      title="Delete category"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-end space-x-1.5">
+                      <button
+                        onClick={() => startEdit(c)}
+                        className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                        title="Edit category"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Delete category "${c.name}"?`)) {
+                            deleteMutation.mutate(c.id);
+                          }
+                        }}
+                        className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete category"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -159,6 +209,7 @@ export function CategoriesPage() {
         )}
       </Card>
 
+      {/* CREATE MODAL */}
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
@@ -207,6 +258,62 @@ export function CategoriesPage() {
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
               Create Category
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* EDIT MODAL */}
+      <Modal
+        isOpen={!!editingCategory}
+        onClose={() => setEditingCategory(null)}
+        title="Edit Category"
+        description="Update category details and taxonomy."
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Category Name *</label>
+            <Input
+              required
+              placeholder="Category name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Parent Category</label>
+            <select
+              value={editParentId}
+              onChange={(e) => setEditParentId(e.target.value)}
+              className="h-10 w-full rounded-lg border border-input bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">None (Top-Level Category)</option>
+              {categories
+                ?.filter((cat) => cat.id !== editingCategory?.id)
+                .map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Description</label>
+            <Input
+              placeholder="Optional description"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4 border-t border-border">
+            <Button type="button" variant="outline" onClick={() => setEditingCategory(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={updateMutation.isPending}>
+              Save Changes
             </Button>
           </div>
         </form>
