@@ -8,7 +8,7 @@
     "client"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=server & npm run dev --workspace=client",
+    "dev": "concurrently -n \"server,client\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm run dev --workspace=server",
     "dev:client": "npm run dev --workspace=client",
     "build": "npm run build --workspace=server && npm run build --workspace=client",
@@ -16,10 +16,12 @@
     "build:client": "npm run build --workspace=client",
     "test": "npm run test --workspace=server && npm run test --workspace=client",
     "test:server": "npm run test --workspace=server",
-    "db:migrate": "npm run prisma:migrate --workspace=server",
-    "db:seed": "npm run prisma:seed --workspace=server",
-    "db:seed:demo": "npm run prisma:seed:demo --workspace=server",
-    "db:studio": "npm run prisma:studio --workspace=server",
+    "db:push": "npm run db:push --workspace=server",
+    "db:migrate": "npm run db:migrate --workspace=server",
+    "db:generate": "npm run db:generate --workspace=server",
+    "db:seed": "npm run db:seed --workspace=server",
+    "db:seed:demo": "npm run db:seed:demo --workspace=server",
+    "db:studio": "npm run db:studio --workspace=server",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"
   },
@@ -34,5 +36,8 @@
     "tailwind"
   ],
   "author": "StockFlow Engineering Team",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
 }
