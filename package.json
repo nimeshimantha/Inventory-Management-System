@@ -1,0 +1,37 @@
+{
+  "name": "stockflow-inventory-management",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StockFlow — Enterprise Full-Stack Inventory Management System",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=server & npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=server && npm run build --workspace=client",
+    "build:server": "npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "test": "npm run test --workspace=server && npm run test --workspace=client",
+    "test:server": "npm run test --workspace=server",
+    "db:migrate": "npm run prisma:migrate --workspace=server",
+    "db:seed": "npm run prisma:seed --workspace=server",
+    "db:studio": "npm run prisma:studio --workspace=server",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "keywords": [
+    "inventory-management",
+    "react",
+    "typescript",
+    "nodejs",
+    "express",
+    "postgresql",
+    "prisma",
+    "tailwind"
+  ],
+  "author": "StockFlow Engineering Team",
+  "license": "ISC"
+}
