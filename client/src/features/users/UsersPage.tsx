@@ -12,7 +12,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Skeleton } from '../../components/ui/skeleton.js';
 import { EmptyState } from '../../components/ui/empty-state.js';
 import { formatDateTime } from '../../lib/utils.js';
-import { Plus, Search, UserCheck, Shield, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Search, UserCheck, Shield, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function UsersPage() {
@@ -29,13 +29,21 @@ export function UsersPage() {
     roleCodes: ['STAFF'],
   });
 
-  const { data: usersData, isLoading } = useQuery({
+  const { data: usersData, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['users', search],
     queryFn: async () => {
-      const res = await api.get(`/users${search ? `?search=${search}` : ''}`);
-      return res.data.data;
+      const res = await api.get(`/users${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+      return res.data;
     },
   });
+
+  const users: User[] = Array.isArray(usersData?.data)
+    ? usersData.data
+    : Array.isArray(usersData)
+    ? usersData
+    : Array.isArray(usersData?.users)
+    ? usersData.users
+    : [];
 
   const createMutation = useMutation({
     mutationFn: async (payload: typeof formData) => {
@@ -112,12 +120,25 @@ export function UsersPage() {
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
           </div>
-        ) : !usersData?.users || usersData.users.length === 0 ? (
+        ) : isError ? (
+          <div className="flex min-h-[300px] flex-col items-center justify-center p-8 text-center animate-in fade-in">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-4">
+              <AlertCircle className="h-7 w-7" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">Failed to load users</h3>
+            <p className="mt-1 text-sm text-muted-foreground max-w-sm mb-5">
+              {(error as any)?.response?.data?.message || (error as Error)?.message || 'An unexpected error occurred while loading users.'}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Try Again
+            </Button>
+          </div>
+        ) : users.length === 0 ? (
           <EmptyState
-            title="No users found"
-            description="Invite teammates and configure access roles."
-            actionText="Add User"
-            onAction={() => setShowCreateModal(true)}
+            title={search ? 'No matching users found' : 'No users found'}
+            description={search ? `No user accounts match "${search}". Try searching with another name or email.` : 'Invite teammates and configure access roles.'}
+            actionText={search ? undefined : 'Add User'}
+            onAction={search ? undefined : () => setShowCreateModal(true)}
             icon={<UserCheck className="h-7 w-7" />}
           />
         ) : (
@@ -133,7 +154,7 @@ export function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {usersData.users.map((u: User) => (
+              {users.map((u: User) => (
                 <TableRow key={u.id}>
                   <TableCell>
                     <div className="flex items-center space-x-2.5">
@@ -151,11 +172,18 @@ export function UsersPage() {
                   <TableCell className="text-xs text-muted-foreground">{u.email}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {u.roles?.map((r, i) => (
-                        <Badge key={i} variant={r === 'SUPER_ADMIN' ? 'destructive' : r === 'ADMIN' ? 'default' : 'secondary'} className="text-[10px]">
-                          {typeof r === 'string' ? r : (r as { code?: string }).code}
-                        </Badge>
-                      ))}
+                      {u.roles?.map((r, i) => {
+                        const roleCode = typeof r === 'string' ? r : (r as unknown as { code?: string })?.code || '';
+                        return (
+                          <Badge
+                            key={i}
+                            variant={roleCode === 'SUPER_ADMIN' ? 'destructive' : roleCode === 'ADMIN' ? 'default' : 'secondary'}
+                            className="text-[10px]"
+                          >
+                            {roleCode}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
